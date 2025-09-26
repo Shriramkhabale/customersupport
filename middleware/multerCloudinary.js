@@ -7,14 +7,14 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => {
     // Store all images in one folder, all audios in one folder, all files in one folder
-    let folder = 'general_files';
+    let folder = 'general_Support_files';
 
     if (file.mimetype.startsWith('image/')) {
-      folder = 'all_images';
+      folder = 'Support_images';
     } else if (file.mimetype.startsWith('audio/')) {
-      folder = 'all_audios';
+      folder = 'Support_audios';
     } else {
-      folder = 'all_files';
+      folder = 'Support_files';
     }
 
     return {
