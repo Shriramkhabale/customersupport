@@ -6,7 +6,6 @@ const cloudinary = require('../config/cloudinaryConfig');
 const storage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => {
-    // Store all images in one folder, all audios in one folder, all files in one folder
     let folder = 'general_Support_files';
 
     if (file.mimetype.startsWith('image/')) {
@@ -27,7 +26,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 5 MB max per file
+  limits: { fileSize: 2 * 1024 * 1024 }, 
 });
 
 module.exports = upload;
