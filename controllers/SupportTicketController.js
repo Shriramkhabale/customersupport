@@ -1,16 +1,8 @@
 // controllers/SupportTicketController.js
 const SupportTicket = require("../models/SupportTicket");
+const TicketProgress = require("../models/TicketProgress");  // <-- ADD THIS LINE (fixes the ReferenceError)
+const mongoose = require('mongoose');  // <-- ADD THIS LINE (for safe ObjectId conversion in refs)
 
-// Create new support ticket
-// exports.createTicket = async (req, res) => {
-//     try {
-//         const ticket = new SupportTicket(req.body);
-//         await ticket.save();
-//         res.status(201).json({ success: true, ticket });
-//     } catch (err) {
-//         res.status(400).json({ success: false, message: err.message });
-//     }
-// };
 
 // Get all tickets
 exports.getTickets = async (req, res) => {
@@ -67,16 +59,6 @@ exports.getTicketById = async (req, res) => {
     }
 };
 
-// Update ticket
-// exports.updateTicket = async (req, res) => {
-//     try {
-//         const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, req.body, { new: true });
-//         if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
-//         res.json({ success: true, ticket });
-//     } catch (err) {
-//         res.status(400).json({ success: false, message: err.message });
-//     }
-// };
 
 // Delete ticket
 exports.deleteTicket = async (req, res) => {
@@ -156,5 +138,80 @@ exports.updateTicketWithImages = async (req, res) => {
   } catch (err) {
     console.error('Update ticket error:', err);
     res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+
+// Reassign ticket to another employee, log in progress history
+exports.reassignTicket = async (req, res) => {
+  try {
+    const { id: ticketId } = req.params;
+    const { newAssignedTo, reassigned_description = '', updatedBy } = req.body;
+    // Validation
+    if (!ticketId || !newAssignedTo || !updatedBy) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ticketId (from params), newAssignedTo, and updatedBy are required' 
+      });
+    }
+    // Fetch existing ticket
+    const ticket = await SupportTicket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+    if (ticket.assignedTo === newAssignedTo) {
+      return res.status(400).json({ success: false, message: 'Ticket is already assigned to this employee' });
+    }
+    // Convert to ObjectId
+    const ticketIdObj = new mongoose.Types.ObjectId(ticketId);
+    const updatedById = new mongoose.Types.ObjectId(updatedBy);
+
+    // NEW: Handle assignee history before updating assignedTo
+    const now = new Date();
+    const oldAssignee = ticket.assignedTo;  // Capture old assignee
+    
+    // Append old assignee to history if it's not already there (avoids duplicates)
+    if (oldAssignee && !ticket.assigneeHistory.some(h => h.employeeId === oldAssignee)) {
+      ticket.assigneeHistory.push({ employeeId: oldAssignee, assignedAt: ticket.updatedAt || ticket.createdAt });
+    }
+  
+
+    // Update ticket assignedTo
+    ticket.assignedTo = newAssignedTo;
+    ticket.updatedAt = new Date();
+
+    // Append new assignee to history
+    ticket.assigneeHistory.push({ employeeId: newAssignedTo, assignedAt: now });
+   
+
+    await ticket.save();
+
+
+   // Standard description for reassignment (always set)
+    const standardDescription = `Ticket reassigned to employee ${newAssignedTo}`;
+
+    const progressDescription = standardDescription;  // Standard message in description
+    const progressReassignDescription = reassigned_description;  // Custom reason in separate field
+
+    
+    const progress = new TicketProgress({
+      ticketId: ticketIdObj,
+      status: ticket.status, // Preserve current status
+      description: progressDescription,  // <-- FIXED: Set standard/combined description
+      reassignDescription: progressReassignDescription,  // <-- FIXED: Map body to schema field (was 'reassigned_description')
+      updatedBy: updatedById,
+    });
+    await progress.save();
+    // Populate for response
+    await progress.populate('updatedBy', 'name email');
+    res.json({ 
+      success: true, 
+      message: 'Ticket reassigned successfully. History updated.', 
+      ticket, 
+      progress  // Now includes both description and reassignDescription correctly
+    });
+  } catch (error) {
+    console.error('Reassign ticket error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
