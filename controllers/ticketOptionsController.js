@@ -1,106 +1,138 @@
 const TicketOptions = require('../models/TicketOptions');
 
-// POST: Add option(s) to a category (single API for all)
+
+const getCompanyId = (req) => {
+  if (req.params.companyId) {
+    return req.params.companyId;
+  }
+  
+  if (req.body.companyId) {
+    return req.body.companyId;
+  }
+  
+  if (req.user) {
+    if (req.user.role === 'company') {
+      return req.user.id;
+    }
+    return req.user.companyId;
+  }
+  
+  return null;
+};
+
+
 exports.addTicketOption = async (req, res) => {
   try {
-    const { category, value } = req.body;  // Single: { category: 'services', value: 'New Service' }
-    // Or multiple: { category: 'services', values: ['Service1', 'Service2'] }
-    const companyId = req.user.companyId;  // From auth middleware
+    const { category, value } = req.body;
+    const companyId = getCompanyId(req);
 
     if (!companyId) {
-      return res.status(401).json({ success: false, message: 'Company ID required' });
-    }
-
-    if (!category || !['services', 'materials', 'locations', 'cities', 'subjects', 'descriptions'].includes(category)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid category. Valid: services, materials, locations, cities, subjects, descriptions' 
+        message: 'Company ID required' 
       });
     }
 
-    const valuesToAdd = Array.isArray(value) ? value : [value];  // Handle single or array
-    if (!valuesToAdd.length || valuesToAdd.some(v => !v || typeof v !== 'string')) {
-      return res.status(400).json({ success: false, message: 'Valid non-empty string value(s) required' });
+    const validCategories = ['services', 'materials', 'locations', 'cities', 'subjects', 'descriptions'];
+    if (!category || !validCategories.includes(category)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid category. Must be one of: ${validCategories.join(', ')}` 
+      });
     }
 
-    // Find or create options doc for company
+    const values = Array.isArray(value) ? value : [value];
+    const validValues = values.filter(v => v && typeof v === 'string' && v.trim());
+    
+    if (validValues.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'At least one valid value required' 
+      });
+    }
+
     let options = await TicketOptions.findOne({ companyId });
+    
     if (!options) {
       options = new TicketOptions({ companyId });
     }
 
-    // Add unique values to the category array
-    const categoryField = category;  // e.g., 'services'
-    const currentValues = options[categoryField] || [];
-    const newValues = valuesToAdd
-      .map(v => v.trim().toLowerCase())  // Normalize for uniqueness
-      .filter(v => v && !currentValues.some(existing => existing.toLowerCase() === v));  // Avoid duplicates (case-insensitive)
+    const current = options[category] || [];
+    const currentLower = current.map(v => v.toLowerCase());
+    
+    const newValues = validValues
+      .map(v => v.trim())
+      .filter(v => !currentLower.includes(v.toLowerCase()));
 
     if (newValues.length === 0) {
       return res.json({ 
         success: true, 
-        message: 'No new values added (duplicates or empty)', 
-        options: options[categoryField] 
+        message: 'No new values (duplicates filtered)',
+        total: current.length
       });
     }
 
-    // Add normalized values (but store original casing if needed; here we store trimmed original)
-    const originalNewValues = valuesToAdd.map(v => v.trim()).filter((v, idx) => newValues.includes(v.toLowerCase()));
-    options[categoryField] = [...currentValues, ...originalNewValues];
-
+    options[category] = [...current, ...newValues];
     await options.save();
 
     res.status(201).json({ 
       success: true, 
-      message: `${newValues.length} new value(s) added to ${category}`,
-      category,
-      added: originalNewValues,
-      total: options[categoryField].length
+      message: `Added ${newValues.length} new value(s) to ${category}`,
+      added: newValues.length,
+      total: options[category].length
     });
-  } catch (err) {
-    console.error('Add option error:', err);
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error('Add option error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
   }
 };
 
-// GET: Fetch all options for dropdowns
 exports.getTicketOptions = async (req, res) => {
   try {
-    const companyId = req.user.companyId;
+    const companyId = getCompanyId(req);
+
     if (!companyId) {
-      return res.status(401).json({ success: false, message: 'Company ID required' });
-    }
-
-    const options = await TicketOptions.findOne({ companyId });
-
-    if (!options) {
-      // Return empty structure if no options yet
-      return res.json({ 
-        success: true, 
-        options: {
-          services: [],
-          materials: [],
-          locations: [],
-          cities: [],
-          subjects: [],
-          descriptions: []
-        }
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Company ID required' 
       });
     }
 
-    // Ensure all fields exist (init if missing)
-    const fullOptions = {
-      services: options.services || [],
-      materials: options.materials || [],
-      locations: options.locations || [],
-      cities: options.cities || [],
-      subjects: options.subjects || [],
-      descriptions: options.descriptions || []
-    };
+    let options = await TicketOptions.findOne({ companyId });
 
-    res.json({ success: true, options: fullOptions });
-  } catch (err) {
-    console.error('Get options error:', err);
-    res.status(500).json({ success: false, message: err.message });
+    if (!options) {
+      options = {
+        services: [],
+        materials: [],
+        locations: [],
+        cities: [],
+        subjects: [],
+        descriptions: []
+      };
+    } else {
+      options = {
+        services: options.services || [],
+        materials: options.materials || [],
+        locations: options.locations || [],
+        cities: options.cities || [],
+        subjects: options.subjects || [],
+        descriptions: options.descriptions || []
+      };
+    }
+
+    res.json({ 
+      success: true, 
+      options 
+    });
+  } catch (error) {
+    console.error('Get options error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
   }
 };
+

@@ -1,12 +1,12 @@
+
+
 const express = require('express');
 const router = express.Router();
-const ticketOptionsController = require('../controllers/ticketOptionsController');
+const controller = require('../controllers/ticketOptionsController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// POST: Add option to category
-router.post('/add', authMiddleware, ticketOptionsController.addTicketOption);
-
-// GET: Fetch all options
-router.get('/', authMiddleware, ticketOptionsController.getTicketOptions);
+router.post('/add', authMiddleware, controller.addTicketOption);
+router.get('/:companyId', authMiddleware, controller.getTicketOptions);
+router.get('/', authMiddleware, controller.getTicketOptions);
 
 module.exports = router;
