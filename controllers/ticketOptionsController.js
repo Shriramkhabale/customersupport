@@ -1,6 +1,4 @@
 const TicketOptions = require('../models/TicketOptions');
-
-
 const getCompanyId = (req) => {
   if (req.params.companyId) {
     return req.params.companyId;
@@ -135,4 +133,3 @@ exports.getTicketOptions = async (req, res) => {
     });
   }
 };
-
