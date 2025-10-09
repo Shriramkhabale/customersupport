@@ -10,6 +10,7 @@ const TicketOptionsSchema = new mongoose.Schema({
   services: [{ type: String, trim: true }],
   materials: [{ type: String, trim: true }],
   locations: [{ type: String, trim: true }],
+  customerName: [{ type: String, trim: true }],
   cities: [{ type: String, trim: true }],
   subjects: [{ type: String, trim: true }],
   descriptions: [{ type: String, trim: true }]
