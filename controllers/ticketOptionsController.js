@@ -31,7 +31,7 @@ exports.addTicketOption = async (req, res) => {
       });
     }
 
-    const validCategories = ['services', 'materials', 'locations', 'cities', 'subjects', 'descriptions'];
+    const validCategories = ['services', 'materials', 'locations', 'customerNames', 'cities', 'subjects', 'descriptions'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({ 
         success: false, 
@@ -106,6 +106,7 @@ exports.getTicketOptions = async (req, res) => {
         services: [],
         materials: [],
         locations: [],
+        customerNames:[],
         cities: [],
         subjects: [],
         descriptions: []
@@ -115,6 +116,7 @@ exports.getTicketOptions = async (req, res) => {
         services: options.services || [],
         materials: options.materials || [],
         locations: options.locations || [],
+        customerNames : options.customerNames || [],
         cities: options.cities || [],
         subjects: options.subjects || [],
         descriptions: options.descriptions || []
@@ -149,7 +151,7 @@ exports.deleteTicketOption = async (req, res) => {
       });
     }
 
-    const validCategories = ['services', 'materials', 'locations', 'cities', 'subjects', 'descriptions'];
+    const validCategories = ['services', 'materials', 'locations','customerNames', 'cities', 'subjects', 'descriptions'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({ 
         success: false, 
@@ -215,7 +217,7 @@ exports.updateTicketOptions = async (req, res) => {
       });
     }
 
-    const validCategories = ['services', 'materials', 'locations', 'cities', 'subjects', 'descriptions'];
+    const validCategories = ['services', 'materials', 'locations', 'customerNames', 'cities', 'subjects', 'descriptions'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({ 
         success: false, 
